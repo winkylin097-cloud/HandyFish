@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HandyFish - 手势大鱼吃小鱼</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main id="app">
+      <canvas id="game-canvas"></canvas>
+
+      <section id="start-ui" class="scene-ui active">
+        <h1 class="title">HandyFish</h1>
+        <p class="subtitle">挥动手势，让你的鱼在水域中捕食</p>
+        <p id="start-tip" class="start-tip">正在尝试启动手势识别...</p>
+        <button id="start-btn" class="water-btn" type="button">
+          <span>START</span>
+          <i class="particle p1"></i>
+          <i class="particle p2"></i>
+          <i class="particle p3"></i>
+          <i class="particle p4"></i>
+          <i class="particle p5"></i>
+          <i class="particle p6"></i>
+        </button>
+      </section>
+
+      <section id="select-ui" class="scene-ui">
+        <h2 class="panel-title">选择你的鱼</h2>
+        <p class="panel-subtitle">点击一条鱼开始练习</p>
+        <p id="select-tip" class="start-tip">正在等待手势定位...</p>
+        <div id="fish-options" class="fish-options"></div>
+      </section>
+
+      <section id="practice-ui" class="scene-ui">
+        <div class="hud">
+          <div>分数: <span id="score">0</span></div>
+          <div>剩余目标: <span id="remain">4</span></div>
+          <div id="gesture-state">手势状态: 未检测</div>
+        </div>
+        <button id="help-btn" type="button" class="mini-btn">手势帮助</button>
+      </section>
+
+      <div id="toast" class="toast"></div>
+      <div id="transition-overlay"></div>
+      <video id="input-video" autoplay playsinline muted></video>
+    </main>
+
+    <dialog id="guide-modal" class="guide-modal">
+      <h3>手势与操作指南</h3>
+      <ul>
+        <li>✊ 握拳：控制你的鱼移动</li>
+        <li>🤏 C 手势：张嘴准备吞噬</li>
+        <li>✊ 再握拳：吞掉附近一条小鱼并得分</li>
+        <li>游戏中移动手到右上角“手势帮助”，握拳可确认点击</li>
+        <li>请先允许摄像头权限，并尽量保持手部在画面中央</li>
+        <li>若摄像头不可用：鼠标移动 + 键盘 C 张嘴 + 键盘 F 吞噬</li>
+      </ul>
+      <button id="close-guide" class="mini-btn" type="button">我知道了</button>
+    </dialog>
+
+    <dialog id="result-modal" class="guide-modal">
+      <h3 id="result-title">练习完成</h3>
+      <p id="result-text"></p>
+      <button id="restart-btn" class="mini-btn" type="button">回到开始界面</button>
+    </dialog>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="./script.js"></script>
+  </body>
+</html>

@@ -1,0 +1,337 @@
+:root {
+  --water-1: #071425;
+  --water-2: #0f2f52;
+  --water-3: #1f5f8e;
+  --foam: #b5ebff;
+  --panel: rgba(5, 22, 43, 0.72);
+  --text: #def6ff;
+  --accent: #84ddff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: "Segoe UI", "PingFang SC", sans-serif;
+  background: #000;
+  color: var(--text);
+}
+
+#app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+#game-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.scene-ui {
+  position: absolute;
+  inset: 0;
+  display: none;
+  z-index: 3;
+}
+
+.scene-ui.active {
+  display: flex;
+}
+
+#start-ui {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.35));
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(42px, 8vw, 80px);
+  letter-spacing: 2px;
+  text-shadow: 0 10px 26px rgba(0, 0, 0, 0.55);
+}
+
+.subtitle {
+  margin: 0;
+  opacity: 0.9;
+}
+
+.start-tip {
+  margin: -2px 0 4px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(201, 241, 255, 0.5);
+  background: rgba(6, 28, 49, 0.48);
+  font-size: 14px;
+  opacity: 0.95;
+}
+
+.water-btn {
+  margin-top: 20px;
+  position: relative;
+  border: 1px solid rgba(203, 250, 255, 0.72);
+  border-radius: 999px;
+  padding: 16px 48px;
+  background: rgba(46, 154, 210, 0.3);
+  color: #f0feff;
+  font-size: 22px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  backdrop-filter: blur(2px);
+  overflow: hidden;
+  box-shadow: inset 0 0 20px rgba(173, 238, 255, 0.35), 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+.water-btn .particle {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(209, 253, 255, 0.85);
+  animation: float 2.4s ease-in-out infinite;
+}
+
+.water-btn .p1 {
+  left: 12%;
+  top: 35%;
+}
+
+.water-btn .p2 {
+  left: 28%;
+  top: 68%;
+  animation-delay: 0.3s;
+}
+
+.water-btn .p3 {
+  left: 44%;
+  top: 28%;
+  animation-delay: 0.65s;
+}
+
+.water-btn .p4 {
+  left: 60%;
+  top: 62%;
+  animation-delay: 0.4s;
+}
+
+.water-btn .p5 {
+  left: 76%;
+  top: 37%;
+  animation-delay: 0.8s;
+}
+
+.water-btn .p6 {
+  left: 88%;
+  top: 54%;
+  animation-delay: 1s;
+}
+
+.water-btn.scatter .particle {
+  animation: scatter 0.7s ease-out forwards;
+}
+
+.water-btn.gesture-hover {
+  transform: scale(1.05);
+  box-shadow: inset 0 0 24px rgba(173, 238, 255, 0.45), 0 10px 28px rgba(95, 214, 255, 0.35);
+}
+
+#select-ui {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.panel-title {
+  margin: 0;
+  font-size: 38px;
+}
+
+.panel-subtitle {
+  margin: 0 0 12px;
+  opacity: 0.82;
+}
+
+.fish-options {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.fish-card {
+  width: 170px;
+  height: 100px;
+  border: 1px solid rgba(174, 232, 255, 0.45);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(17, 64, 96, 0.56), rgba(8, 34, 56, 0.7));
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 18px rgba(156, 223, 255, 0.16);
+}
+
+.fish-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.fish-card.gesture-hover {
+  transform: translateY(-4px) scale(1.03);
+  border-color: rgba(200, 248, 255, 0.85);
+  box-shadow: inset 0 0 24px rgba(173, 238, 255, 0.32), 0 10px 24px rgba(84, 199, 247, 0.33);
+}
+
+#practice-ui {
+  pointer-events: none;
+}
+
+.hud {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  margin: 0;
+  width: 210px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(176, 229, 255, 0.45);
+  background: rgba(4, 18, 34, 0.42);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+  pointer-events: auto;
+}
+
+.hud > div {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mini-btn {
+  pointer-events: auto;
+  border: 1px solid rgba(206, 244, 255, 0.72);
+  border-radius: 10px;
+  padding: 10px 18px;
+  color: #dff8ff;
+  background: rgba(34, 133, 178, 0.45);
+  cursor: pointer;
+}
+
+.mini-btn.gesture-hover {
+  transform: scale(1.04);
+  border-color: rgba(221, 251, 255, 0.95);
+  box-shadow: 0 8px 18px rgba(93, 205, 255, 0.28), inset 0 0 12px rgba(193, 243, 255, 0.24);
+}
+
+#help-btn {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+}
+
+#input-video {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  width: 200px;
+  border-radius: 12px;
+  opacity: 0.24;
+  z-index: 2;
+  pointer-events: none;
+  transform: scaleX(-1);
+}
+
+#transition-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at 30% 20%, rgba(20, 58, 92, 0.22), rgba(0, 0, 0, 0.95) 70%);
+  transition: opacity 0.65s ease;
+}
+
+#transition-overlay.active {
+  opacity: 1;
+}
+
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 42px;
+  transform: translateX(-50%) translateY(20px);
+  z-index: 9;
+  border-radius: 999px;
+  border: 1px solid rgba(206, 244, 255, 0.72);
+  padding: 10px 20px;
+  background: rgba(3, 20, 38, 0.78);
+  opacity: 0;
+  transition: all 0.24s ease;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.guide-modal {
+  border: 1px solid rgba(194, 236, 255, 0.75);
+  border-radius: 14px;
+  background: rgba(6, 20, 38, 0.92);
+  color: #e8faff;
+  width: min(460px, 88vw);
+  padding: 18px 18px 16px;
+}
+
+.guide-modal::backdrop {
+  background: rgba(0, 0, 0, 0.56);
+}
+
+.guide-modal h3 {
+  margin-top: 0;
+}
+
+.guide-modal ul {
+  margin: 10px 0 18px;
+  padding-left: 20px;
+  line-height: 1.65;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translateY(-8px);
+    opacity: 1;
+  }
+}
+
+@keyframes scatter {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc((var(--sx, 0) - 0.5) * 140px), calc((var(--sy, 0) - 0.5) * 140px))
+      scale(0.5);
+    opacity: 0;
+  }
+}
