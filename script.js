@@ -33,7 +33,8 @@ const bgmMind = new Audio("./assets/audio/mixkit-cant-get-you-off-my-mind-1210.m
 const sfxBubble = new Audio("./assets/audio/mixkit-liquid-bubble-3000.wav");
 const sfxVacuum = new Audio("./assets/audio/mixkit-air-zoom-vacuum-2608.wav");
 const sfxRetro = new Audio("./assets/audio/mixkit-retro-game-notification-212.wav");
-[sfxBubble, sfxVacuum, sfxRetro].forEach((audio) => {
+const sfxMystery = new Audio("./assets/audio/mixkit-short-electric-fence-buzz-2966.wav");
+[sfxBubble, sfxVacuum, sfxRetro, sfxMystery].forEach((audio) => {
   audio.volume = 0.65;
 });
 
@@ -99,6 +100,7 @@ let prevPlayerSpeedPx = 0;
 let playerAccelPx = 0;
 let schoolScareCooldown = 0;
 let lastScatterToastAt = 0;
+let fishDifficultyBoost = 1;
 
 function setControlMode(mode) {
   controlMode = mode;
@@ -434,28 +436,54 @@ function createRainbowPrey(index) {
   });
 }
 
+function createMysteryPrey(index) {
+  return createPrey(index, {
+    size: randomRange(24, 29),
+    color: "#ffe48f",
+    fin: "#fff8d8",
+    specialType: "mystery",
+    noteSymbol: "?"
+  });
+}
+
 function applySpecialFishEffects(targetFish) {
   if (targetFish.specialType === "music-1") {
     activeBiteSfx = sfxVacuum;
     switchBgm(bgmHoliday);
-    return "吞掉音符鱼♪：背景音乐切换为 holiday fun";
+    return { message: "吞掉音符鱼♪：背景音乐切换为 holiday fun", useDefaultBiteSfx: true };
   }
   if (targetFish.specialType === "music-2") {
     activeBiteSfx = sfxRetro;
     switchBgm(bgmMind);
-    return "吞掉音符鱼♫：背景音乐切换为 cant-get-you-off-my-mind";
+    return { message: "吞掉音符鱼♫：背景音乐切换为 cant-get-you-off-my-mind", useDefaultBiteSfx: true };
   }
   if (targetFish.specialType === "rainbow") {
     practiceTheme = "cosmos";
     cosmicTint = targetFish.color;
-    return "吞掉彩色鱼：背景切换为星空宇宙";
+    return { message: "吞掉彩色鱼：背景切换为星空宇宙", useDefaultBiteSfx: true };
   }
-  return "成功吞噬 +1 分";
+  if (targetFish.specialType === "mystery") {
+    sfxMystery.currentTime = 0;
+    sfxMystery.play().catch(() => {});
+    const splitMode = Math.random() < 0.5;
+    if (splitMode) {
+      const nextIndexBase = preyList.length + 20;
+      for (let i = 0; i < 5; i += 1) {
+        preyList.push(createPrey(nextIndexBase + i));
+      }
+      return { message: "问号鱼触发分裂：鱼群 +5", useDefaultBiteSfx: false };
+    }
+    fishDifficultyBoost = Math.max(fishDifficultyBoost, 1.5);
+    return { message: "问号鱼触发狂暴：鱼群速度与躲避提升 50%", useDefaultBiteSfx: false };
+  }
+  return { message: "成功吞噬 +1 分", useDefaultBiteSfx: true };
 }
 
 function scareNearbyPrey(speedPxPerSec) {
   let affected = 0;
-  const reactRadius = 220 + Math.min(130, Math.max(0, speedPxPerSec - SCATTER_SPEED_THRESHOLD) * 0.26);
+  const reactRadius =
+    220 * fishDifficultyBoost +
+    Math.min(130, Math.max(0, speedPxPerSec - SCATTER_SPEED_THRESHOLD / fishDifficultyBoost) * 0.26);
   preyList.forEach((fish) => {
     if (fish.panicCooldown > 0) return;
     const dx = fish.x - player.x;
@@ -466,7 +494,9 @@ function scareNearbyPrey(speedPxPerSec) {
     const inv = 1 / Math.max(1, dist);
     const randomness = (Math.random() - 0.5) * 0.45;
     const influence = 1 - dist / reactRadius;
-    const panicSpeed = 2.05 + influence * 1.25 + Math.min(0.75, Math.max(0, speedPxPerSec - 520) * 0.003);
+    const panicSpeed =
+      (2.05 + influence * 1.25 + Math.min(0.75, Math.max(0, speedPxPerSec - 520) * 0.003)) *
+      fishDifficultyBoost;
     fish.vx = dx * inv * panicSpeed + randomness;
     fish.vy = dy * inv * panicSpeed + randomness * 0.8;
     fish.panicTimer = 0.58 + Math.random() * 0.42;
@@ -500,6 +530,7 @@ function startPractice() {
   playerAccelPx = 0;
   schoolScareCooldown = 0;
   lastScatterToastAt = 0;
+  fishDifficultyBoost = 1;
   activeBiteSfx = sfxBubble;
   resetPracticeTheme();
   switchBgm(bgmDefault);
@@ -508,12 +539,14 @@ function startPractice() {
     createPrey(1),
     createPrey(2),
     createPrey(3),
+    createPrey(4),
     createMusicPrey(4, 1),
     createMusicPrey(5, 2),
-    createRainbowPrey(6)
+    createRainbowPrey(6),
+    createMysteryPrey(7)
   ];
   remainEl.textContent = String(preyList.length);
-  showToast("练习开始：寻找两条音符鱼和一条彩色鱼");
+  showToast("练习开始：寻找音符鱼、彩色鱼和问号鱼");
   if (!firstPracticeGuideShown) {
     firstPracticeGuideShown = true;
     guideModal.showModal();
@@ -682,10 +715,12 @@ function updatePrey(delta) {
 
     fish.vx += Math.sin(sceneTime * 0.001 + idx) * (isPanicked ? 0.0012 : 0.003);
     fish.vy += Math.cos(sceneTime * 0.0013 + idx * 2) * (isPanicked ? 0.001 : 0.0025);
-    fish.vx = Math.max(-(isPanicked ? 2.8 : 1.4), Math.min(isPanicked ? 2.8 : 1.4, fish.vx));
-    fish.vy = Math.max(-(isPanicked ? 2.3 : 1.1), Math.min(isPanicked ? 2.3 : 1.1, fish.vy));
-    fish.x += fish.vx * 90 * delta;
-    fish.y += fish.vy * 90 * delta;
+    const speedCapX = (isPanicked ? 2.8 : 1.4) * fishDifficultyBoost;
+    const speedCapY = (isPanicked ? 2.3 : 1.1) * fishDifficultyBoost;
+    fish.vx = Math.max(-speedCapX, Math.min(speedCapX, fish.vx));
+    fish.vy = Math.max(-speedCapY, Math.min(speedCapY, fish.vy));
+    fish.x += fish.vx * 90 * delta * fishDifficultyBoost;
+    fish.y += fish.vy * 90 * delta * fishDifficultyBoost;
     fish.dir = fish.vx >= 0 ? 1 : -1;
 
     if (fish.x < 40 || fish.x > canvas.width - 40) fish.vx *= -1;
@@ -715,8 +750,10 @@ function updatePlayer(delta) {
   playerAccelPx = (playerSpeedPx - prevPlayerSpeedPx) / Math.max(0.001, delta);
   prevPlayerSpeedPx = playerSpeedPx;
 
-  const suddenDash = playerSpeedPx > SCATTER_SPEED_THRESHOLD && playerAccelPx > SCATTER_ACCEL_THRESHOLD;
-  const sustainedRush = playerSpeedPx > SCATTER_SPEED_THRESHOLD + 120;
+  const scatterSpeedThreshold = SCATTER_SPEED_THRESHOLD / fishDifficultyBoost;
+  const scatterAccelThreshold = SCATTER_ACCEL_THRESHOLD / fishDifficultyBoost;
+  const suddenDash = playerSpeedPx > scatterSpeedThreshold && playerAccelPx > scatterAccelThreshold;
+  const sustainedRush = playerSpeedPx > scatterSpeedThreshold + 120 / fishDifficultyBoost;
   if (schoolScareCooldown <= 0 && (suddenDash || sustainedRush)) {
     scareNearbyPrey(playerSpeedPx);
   }
@@ -783,12 +820,14 @@ function attemptBite() {
   preyList = preyList.filter((f) => f.id !== target.id);
   score += 1;
   scoreEl.textContent = String(score);
-  remainEl.textContent = String(preyList.length);
   createBubbleBurst(target.x, target.y, 13);
   createRipples(target.x, target.y, 3);
-  const biteToast = applySpecialFishEffects(target);
-  playBiteSfx();
-  showToast(biteToast);
+  const biteResult = applySpecialFishEffects(target);
+  if (biteResult.useDefaultBiteSfx) {
+    playBiteSfx();
+  }
+  remainEl.textContent = String(preyList.length);
+  showToast(biteResult.message);
   player.mouthOpen = false;
   player.biteArmed = false;
   player.armedPreyId = null;
@@ -1019,7 +1058,7 @@ function drawStartScene(delta) {
 }
 
 function drawSelectScene(delta) {
-  for (let i = 0; i < 5; i += 1) {
+  for (let i = 0; i < 6; i += 1) {
     const t = sceneTime * 0.001 + i;
     drawFish(
       {

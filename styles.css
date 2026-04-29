@@ -149,7 +149,8 @@ body {
 #select-ui {
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  padding-top: clamp(72px, 12vh, 128px);
   gap: 12px;
 }
 
