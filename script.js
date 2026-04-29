@@ -101,6 +101,8 @@ let playerAccelPx = 0;
 let schoolScareCooldown = 0;
 let lastScatterToastAt = 0;
 let fishDifficultyBoost = 1;
+let practiceStartedAtMs = 0;
+let practiceElapsedMs = 0;
 
 function setControlMode(mode) {
   controlMode = mode;
@@ -133,6 +135,13 @@ function playBiteSfx() {
 function resetPracticeTheme() {
   practiceTheme = "ocean";
   cosmicTint = RAINBOW_COLORS[0];
+}
+
+function formatDuration(ms) {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 function updateStartTip(customText) {
@@ -531,6 +540,8 @@ function startPractice() {
   schoolScareCooldown = 0;
   lastScatterToastAt = 0;
   fishDifficultyBoost = 1;
+  practiceStartedAtMs = performance.now();
+  practiceElapsedMs = 0;
   activeBiteSfx = sfxBubble;
   resetPracticeTheme();
   switchBgm(bgmDefault);
@@ -838,10 +849,12 @@ function attemptBite() {
 }
 
 function endPractice(cleared) {
+  practiceElapsedMs = practiceStartedAtMs > 0 ? performance.now() - practiceStartedAtMs : 0;
+  const elapsedLabel = formatDuration(practiceElapsedMs);
   resultTitle.textContent = cleared ? "练习完成" : "练习结束";
   resultText.textContent = cleared
-    ? `你吃掉了所有小鱼，最终得分 ${score} 分。`
-    : `当前得分 ${score} 分，继续练习可以更熟练。`;
+    ? `你吃掉了所有小鱼，最终得分 ${score} 分，用时 ${elapsedLabel}。`
+    : `当前得分 ${score} 分，本局用时 ${elapsedLabel}，继续练习可以更熟练。`;
   if (!resultModal.open) resultModal.showModal();
 }
 
