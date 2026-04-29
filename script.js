@@ -22,12 +22,20 @@ const resultText = document.getElementById("result-text");
 const restartBtn = document.getElementById("restart-btn");
 const inputVideo = document.getElementById("input-video");
 
-const bgm = new Audio("./assets/audio/mixkit-water-flowing-ambience-loop-3126.wav");
-bgm.loop = true;
-bgm.volume = 0.35;
+const bgmDefault = new Audio("./assets/audio/mixkit-water-flowing-ambience-loop-3126.wav");
+const bgmHoliday = new Audio("./assets/audio/mixkit-holiday-fun-87.mp3");
+const bgmMind = new Audio("./assets/audio/mixkit-cant-get-you-off-my-mind-1210.mp3");
+[bgmDefault, bgmHoliday, bgmMind].forEach((audio) => {
+  audio.loop = true;
+  audio.volume = 0.35;
+});
 
-const bubbleSfx = new Audio("./assets/audio/mixkit-liquid-bubble-3000.wav");
-bubbleSfx.volume = 0.65;
+const sfxBubble = new Audio("./assets/audio/mixkit-liquid-bubble-3000.wav");
+const sfxVacuum = new Audio("./assets/audio/mixkit-air-zoom-vacuum-2608.wav");
+const sfxRetro = new Audio("./assets/audio/mixkit-retro-game-notification-212.wav");
+[sfxBubble, sfxVacuum, sfxRetro].forEach((audio) => {
+  audio.volume = 0.65;
+});
 
 const fishTemplates = [
   { id: "azure", name: "深海蓝", color: "#5dc8ff", fin: "#c9f1ff" },
@@ -35,6 +43,9 @@ const fishTemplates = [
   { id: "mint", name: "薄荷绿", color: "#58cf9e", fin: "#d7ffe7" }
 ];
 const HAND_X_MIRROR = true;
+const SCATTER_SPEED_THRESHOLD = 530;
+const SCATTER_ACCEL_THRESHOLD = 1350;
+const RAINBOW_COLORS = ["#ff557a", "#ff9d57", "#ffe166", "#67dd86", "#53d6ff", "#7f8cff", "#d88cff"];
 
 let scene = "start";
 let sceneTime = 0;
@@ -51,6 +62,12 @@ let practiceHandTipShown = false;
 let lastGestureStartTryAt = 0;
 let lastGestureSelectTryAt = 0;
 let lastGestureUiClickAt = 0;
+let bgmStarted = false;
+let activeBgm = bgmDefault;
+let activeBiteSfx = sfxBubble;
+let practiceTheme = "ocean";
+let cosmicTint = RAINBOW_COLORS[0];
+let starField = [];
 
 const mouse = { x: 0, y: 0 };
 const ripplePoints = [];
@@ -77,12 +94,43 @@ const player = {
 let preyList = [];
 let score = 0;
 let cameraRunner = null;
+let playerSpeedPx = 0;
+let prevPlayerSpeedPx = 0;
+let playerAccelPx = 0;
+let schoolScareCooldown = 0;
+let lastScatterToastAt = 0;
 
 function setControlMode(mode) {
   controlMode = mode;
   updateStartTip();
   updateSelectTip();
   updateGestureUI(gestureState);
+}
+
+function playCurrentBgm() {
+  bgmStarted = true;
+  activeBgm.play().catch(() => {});
+}
+
+function switchBgm(nextBgm) {
+  if (!nextBgm || activeBgm === nextBgm) return;
+  const shouldContinue = bgmStarted && !activeBgm.paused;
+  activeBgm.pause();
+  activeBgm.currentTime = 0;
+  activeBgm = nextBgm;
+  if (shouldContinue) {
+    activeBgm.play().catch(() => {});
+  }
+}
+
+function playBiteSfx() {
+  activeBiteSfx.currentTime = 0;
+  activeBiteSfx.play().catch(() => {});
+}
+
+function resetPracticeTheme() {
+  practiceTheme = "ocean";
+  cosmicTint = RAINBOW_COLORS[0];
 }
 
 function updateStartTip(customText) {
@@ -120,6 +168,14 @@ function updateSelectTip(customText) {
 function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
+  const starCount = Math.max(90, Math.floor((canvas.width * canvas.height) / 16000));
+  starField = Array.from({ length: starCount }, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    r: 0.6 + Math.random() * 1.8,
+    phase: Math.random() * Math.PI * 2,
+    speed: 0.45 + Math.random() * 1.1
+  }));
   if (!mouse.x && !mouse.y) {
     mouse.x = canvas.width * 0.5;
     mouse.y = canvas.height * 0.5;
@@ -227,7 +283,7 @@ async function launchFromStart(triggerSource) {
   startLaunchLock = true;
   startBtn.classList.add("scatter");
   startBtn.classList.remove("gesture-hover");
-  bgm.play().catch(() => {});
+  playCurrentBgm();
   initHandTracking();
   createRipples(canvas.width * 0.5, canvas.height * 0.56, 10);
   if (triggerSource === "gesture") {
@@ -327,20 +383,104 @@ function randomRange(min, max) {
   return min + Math.random() * (max - min);
 }
 
-function createPrey(index) {
-  const size = randomRange(20, 28);
+function createPrey(index, options = {}) {
+  const size = options.size ?? randomRange(20, 28);
   return {
     id: `prey_${Date.now()}_${index}_${Math.floor(Math.random() * 10000)}`,
-    x: randomRange(80, canvas.width - 80),
-    y: randomRange(120, canvas.height - 70),
-    vx: randomRange(-1.2, 1.2),
-    vy: randomRange(-0.9, 0.9),
+    x: options.x ?? randomRange(80, canvas.width - 80),
+    y: options.y ?? randomRange(120, canvas.height - 70),
+    vx: options.vx ?? randomRange(-1.2, 1.2),
+    vy: options.vy ?? randomRange(-0.9, 0.9),
     size,
-    color: `hsl(${190 + Math.random() * 80}, 72%, 62%)`,
-    fin: "#d9f8ff",
+    color: options.color ?? `hsl(${190 + Math.random() * 80}, 72%, 62%)`,
+    fin: options.fin ?? "#d9f8ff",
     mouthOpen: false,
-    dir: 1
+    dir: 1,
+    panicTimer: 0,
+    panicCooldown: randomRange(0.2, 0.8),
+    specialType: options.specialType ?? null,
+    noteSymbol: options.noteSymbol ?? "",
+    rainbowSeed: options.rainbowSeed ?? Math.random() * 8
   };
+}
+
+function createMusicPrey(index, variant) {
+  if (variant === 1) {
+    return createPrey(index, {
+      size: randomRange(23, 28),
+      color: "#ffc560",
+      fin: "#fff1be",
+      specialType: "music-1",
+      noteSymbol: "♪"
+    });
+  }
+  return createPrey(index, {
+    size: randomRange(23, 28),
+    color: "#b980ff",
+    fin: "#efddff",
+    specialType: "music-2",
+    noteSymbol: "♫"
+  });
+}
+
+function createRainbowPrey(index) {
+  return createPrey(index, {
+    size: randomRange(25, 30),
+    color: RAINBOW_COLORS[0],
+    fin: "#f7f4ff",
+    specialType: "rainbow",
+    noteSymbol: "✦",
+    rainbowSeed: Math.random() * RAINBOW_COLORS.length
+  });
+}
+
+function applySpecialFishEffects(targetFish) {
+  if (targetFish.specialType === "music-1") {
+    activeBiteSfx = sfxVacuum;
+    switchBgm(bgmHoliday);
+    return "吞掉音符鱼♪：背景音乐切换为 holiday fun";
+  }
+  if (targetFish.specialType === "music-2") {
+    activeBiteSfx = sfxRetro;
+    switchBgm(bgmMind);
+    return "吞掉音符鱼♫：背景音乐切换为 cant-get-you-off-my-mind";
+  }
+  if (targetFish.specialType === "rainbow") {
+    practiceTheme = "cosmos";
+    cosmicTint = targetFish.color;
+    return "吞掉彩色鱼：背景切换为星空宇宙";
+  }
+  return "成功吞噬 +1 分";
+}
+
+function scareNearbyPrey(speedPxPerSec) {
+  let affected = 0;
+  const reactRadius = 220 + Math.min(130, Math.max(0, speedPxPerSec - SCATTER_SPEED_THRESHOLD) * 0.26);
+  preyList.forEach((fish) => {
+    if (fish.panicCooldown > 0) return;
+    const dx = fish.x - player.x;
+    const dy = fish.y - player.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist > reactRadius || dist < 95) return;
+
+    const inv = 1 / Math.max(1, dist);
+    const randomness = (Math.random() - 0.5) * 0.45;
+    const influence = 1 - dist / reactRadius;
+    const panicSpeed = 2.05 + influence * 1.25 + Math.min(0.75, Math.max(0, speedPxPerSec - 520) * 0.003);
+    fish.vx = dx * inv * panicSpeed + randomness;
+    fish.vy = dy * inv * panicSpeed + randomness * 0.8;
+    fish.panicTimer = 0.58 + Math.random() * 0.42;
+    fish.panicCooldown = 1.0 + Math.random() * 0.55;
+    affected += 1;
+  });
+
+  if (affected > 0) {
+    schoolScareCooldown = 0.9 + Math.random() * 0.3;
+  }
+  if (affected >= 2 && performance.now() - lastScatterToastAt > 3800) {
+    lastScatterToastAt = performance.now();
+    showToast("游得太快，鱼群受惊散开了！");
+  }
 }
 
 function startPractice() {
@@ -355,16 +495,64 @@ function startPractice() {
   player.armedPreyId = null;
   practiceHandTipShown = false;
   clearMiniButtonHover();
-  preyList = [createPrey(0), createPrey(1), createPrey(2), createPrey(3)];
+  playerSpeedPx = 0;
+  prevPlayerSpeedPx = 0;
+  playerAccelPx = 0;
+  schoolScareCooldown = 0;
+  lastScatterToastAt = 0;
+  activeBiteSfx = sfxBubble;
+  resetPracticeTheme();
+  switchBgm(bgmDefault);
+  preyList = [
+    createPrey(0),
+    createPrey(1),
+    createPrey(2),
+    createPrey(3),
+    createMusicPrey(4, 1),
+    createMusicPrey(5, 2),
+    createRainbowPrey(6)
+  ];
   remainEl.textContent = String(preyList.length);
-  showToast("练习开始：可手势控制，或用鼠标+C/F 操作");
+  showToast("练习开始：寻找两条音符鱼和一条彩色鱼");
   if (!firstPracticeGuideShown) {
     firstPracticeGuideShown = true;
     guideModal.showModal();
   }
 }
 
+function drawCosmosBackground(timeFactor) {
+  const spaceGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  spaceGrad.addColorStop(0, "#020612");
+  spaceGrad.addColorStop(0.45, "#09081f");
+  spaceGrad.addColorStop(1, "#160a28");
+  ctx.fillStyle = spaceGrad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const nebulaX = canvas.width * (0.35 + Math.sin(timeFactor * 0.00022) * 0.08);
+  const nebulaY = canvas.height * (0.38 + Math.cos(timeFactor * 0.00018) * 0.06);
+  const nebula = ctx.createRadialGradient(nebulaX, nebulaY, 20, nebulaX, nebulaY, canvas.width * 0.72);
+  nebula.addColorStop(0, cosmicTint);
+  nebula.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.save();
+  ctx.globalAlpha = 0.28;
+  ctx.fillStyle = nebula;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
+
+  starField.forEach((star) => {
+    const twinkle = 0.32 + ((Math.sin(timeFactor * 0.0022 * star.speed + star.phase) + 1) * 0.5) * 0.68;
+    ctx.beginPath();
+    ctx.arc(star.x, star.y, star.r * (0.85 + twinkle * 0.25), 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(240, 248, 255, ${twinkle})`;
+    ctx.fill();
+  });
+}
+
 function drawWaterBackground(timeFactor, calm = false) {
+  if (scene === "practice" && practiceTheme === "cosmos") {
+    drawCosmosBackground(timeFactor);
+    return;
+  }
   const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
   grad.addColorStop(0, "#081a2f");
   grad.addColorStop(0.5, "#0f3d66");
@@ -450,6 +638,14 @@ function drawFish(fish, opts = {}) {
   ctx.fill();
   ctx.restore();
 
+  if (fish.noteSymbol) {
+    ctx.font = `${Math.max(16, body * 0.75)}px "Segoe UI Symbol", "Segoe UI", sans-serif`;
+    ctx.fillStyle = "rgba(247, 249, 255, 0.92)";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(fish.noteSymbol, fish.x - body * 0.06, fish.y + body * 0.08);
+  }
+
   if (opts.highlight) {
     ctx.beginPath();
     ctx.arc(fish.x, fish.y, body * 1.15, 0, Math.PI * 2);
@@ -471,12 +667,25 @@ function drawFish(fish, opts = {}) {
 
 function updatePrey(delta) {
   preyList.forEach((fish, idx) => {
+    if (fish.specialType === "rainbow") {
+      const colorIndex = Math.floor((sceneTime / 2000 + fish.rainbowSeed) % RAINBOW_COLORS.length);
+      fish.color = RAINBOW_COLORS[colorIndex];
+      fish.fin = "#f5f3ff";
+    }
+    fish.panicCooldown = Math.max(0, fish.panicCooldown - delta);
+    const isPanicked = fish.panicTimer > 0;
+    if (isPanicked) {
+      fish.panicTimer = Math.max(0, fish.panicTimer - delta);
+      fish.vx *= 0.992;
+      fish.vy *= 0.992;
+    }
+
+    fish.vx += Math.sin(sceneTime * 0.001 + idx) * (isPanicked ? 0.0012 : 0.003);
+    fish.vy += Math.cos(sceneTime * 0.0013 + idx * 2) * (isPanicked ? 0.001 : 0.0025);
+    fish.vx = Math.max(-(isPanicked ? 2.8 : 1.4), Math.min(isPanicked ? 2.8 : 1.4, fish.vx));
+    fish.vy = Math.max(-(isPanicked ? 2.3 : 1.1), Math.min(isPanicked ? 2.3 : 1.1, fish.vy));
     fish.x += fish.vx * 90 * delta;
     fish.y += fish.vy * 90 * delta;
-    fish.vx += Math.sin(sceneTime * 0.001 + idx) * 0.003;
-    fish.vy += Math.cos(sceneTime * 0.0013 + idx * 2) * 0.0025;
-    fish.vx = Math.max(-1.4, Math.min(1.4, fish.vx));
-    fish.vy = Math.max(-1.1, Math.min(1.1, fish.vy));
     fish.dir = fish.vx >= 0 ? 1 : -1;
 
     if (fish.x < 40 || fish.x > canvas.width - 40) fish.vx *= -1;
@@ -485,6 +694,9 @@ function updatePrey(delta) {
 }
 
 function updatePlayer(delta) {
+  schoolScareCooldown = Math.max(0, schoolScareCooldown - delta);
+  const oldX = player.x;
+  const oldY = player.y;
   if (controlMode === "mouse") {
     player.tx = mouse.x;
     player.ty = mouse.y;
@@ -496,6 +708,18 @@ function updatePlayer(delta) {
   player.y += (player.ty - player.y) * Math.min(1, 5.5 * delta);
   player.x = Math.max(50, Math.min(canvas.width - 50, player.x));
   player.y = Math.max(55, Math.min(canvas.height - 45, player.y));
+
+  const distanceMoved = Math.hypot(player.x - oldX, player.y - oldY);
+  const instantSpeed = distanceMoved / Math.max(0.001, delta);
+  playerSpeedPx = playerSpeedPx * 0.78 + instantSpeed * 0.22;
+  playerAccelPx = (playerSpeedPx - prevPlayerSpeedPx) / Math.max(0.001, delta);
+  prevPlayerSpeedPx = playerSpeedPx;
+
+  const suddenDash = playerSpeedPx > SCATTER_SPEED_THRESHOLD && playerAccelPx > SCATTER_ACCEL_THRESHOLD;
+  const sustainedRush = playerSpeedPx > SCATTER_SPEED_THRESHOLD + 120;
+  if (schoolScareCooldown <= 0 && (suddenDash || sustainedRush)) {
+    scareNearbyPrey(playerSpeedPx);
+  }
 }
 
 function updateBubbles(delta) {
@@ -533,11 +757,6 @@ function getNearestPrey() {
   return { fish: nearest, dist: minDist };
 }
 
-function playBubbleSfx() {
-  bubbleSfx.currentTime = 0;
-  bubbleSfx.play().catch(() => {});
-}
-
 function attemptBite() {
   let target = null;
   if (player.armedPreyId) {
@@ -567,8 +786,9 @@ function attemptBite() {
   remainEl.textContent = String(preyList.length);
   createBubbleBurst(target.x, target.y, 13);
   createRipples(target.x, target.y, 3);
-  playBubbleSfx();
-  showToast("成功吞噬 +1 分");
+  const biteToast = applySpecialFishEffects(target);
+  playBiteSfx();
+  showToast(biteToast);
   player.mouthOpen = false;
   player.biteArmed = false;
   player.armedPreyId = null;
@@ -877,7 +1097,7 @@ function drawPracticeScene(delta) {
   updatePlayer(delta);
   drawRipples(delta);
 
-  preyList.forEach((fish) => drawFish(fish, { facing: fish.dir }));
+  preyList.forEach((fish) => drawFish(fish, { facing: fish.dir, mouthOpen: fish.panicTimer > 0.08 }));
   const nearest = getNearestPrey();
   drawFish(player, {
     mouthOpen: player.mouthOpen,
