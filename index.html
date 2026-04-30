@@ -12,12 +12,14 @@
 
       <section id="start-ui" class="scene-ui active">
         <h1 class="title logo-title">
-          <img src="./assets/handyfishlogo.png" alt="HandyFish" class="logo-image" />
+          <video class="logo-image" autoplay loop muted playsinline preload="auto" aria-label="HandyFish Logo">
+            <source src="./assets/handyfishlogogif.mp4" type="video/mp4" />
+          </video>
         </h1>
         <p class="subtitle">挥动手势，让你的鱼在水域中捕食</p>
         <p id="start-tip" class="start-tip">正在尝试启动手势识别...</p>
         <button id="start-btn" class="water-btn" type="button">
-          <span>START</span>
+          <img src="./assets/start.png" alt="Start" class="start-button-image" />
           <i class="particle p1"></i>
           <i class="particle p2"></i>
           <i class="particle p3"></i>

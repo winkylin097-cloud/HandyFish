@@ -68,8 +68,10 @@ body {
 
 .logo-image {
   width: min(520px, 74vw);
+  height: auto;
   max-width: 100%;
   display: block;
+  pointer-events: none;
   filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.5));
 }
 
@@ -93,7 +95,7 @@ body {
   position: relative;
   border: 1px solid rgba(203, 250, 255, 0.72);
   border-radius: 999px;
-  padding: 16px 48px;
+  padding: 12px 22px;
   background: rgba(46, 154, 210, 0.3);
   color: #f0feff;
   font-size: 22px;
@@ -102,6 +104,15 @@ body {
   backdrop-filter: blur(2px);
   overflow: hidden;
   box-shadow: inset 0 0 20px rgba(173, 238, 255, 0.35), 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+.start-button-image {
+  width: min(300px, 54vw);
+  max-width: 100%;
+  display: block;
+  transform: scaleY(0.9);
+  transform-origin: center;
+  pointer-events: none;
 }
 
 .water-btn .particle {
