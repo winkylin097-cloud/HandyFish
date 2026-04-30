@@ -75,13 +75,6 @@ body {
   filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.5));
 }
 
-.logo-video {
-  background: transparent;
-  /* Use blend + contrast to visually suppress checkerboard backgrounds in mp4 logos */
-  mix-blend-mode: screen;
-  filter: grayscale(1) contrast(2.8) brightness(0.62) drop-shadow(0 10px 20px rgba(0, 0, 0, 0.45));
-}
-
 .subtitle {
   margin: 0;
   opacity: 0.9;
@@ -114,7 +107,7 @@ body {
 }
 
 .start-button-image {
-  width: min(190px, 42vw);
+  width: min(58px, 13vw);
   max-width: 100%;
   display: block;
   transform: scaleY(0.9);
